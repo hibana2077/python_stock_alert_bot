@@ -13,11 +13,15 @@ bot.
 
 import logging
 import argparse
+import yaml
+import os
+import sys
+import requests
 import pandas as pd
 import numpy as np
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
-from ccxt import binance, bybit
+from ccxt import binance
 
 # Enable logging
 logging.basicConfig(
@@ -28,7 +32,45 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+# Private functions
+async def get_price_prive(symbol:list,api_key:str) -> dict:
+    """Get the price of input symbol"""
+    #split crypto and stock
+    ex = binance()
+    ex.load_markets()
+    crypto_quote = [quote.split("/")[0] for quote in ex.symbols if quote.endswith("/USDT")]
+    nasdaq_quote = pd.read_csv("https://datahub.io/core/nasdaq-listings/r/1.csv")["Symbol"].tolist()
+    nyse_quote = pd.read_csv("https://datahub.io/core/nyse-other-listings/r/1.csv")["ACT Symbol"].tolist()
+    query_crypto = [quote for quote in symbol if quote in crypto_quote]
+    query_sotck = [quote for quote in symbol if quote in nasdaq_quote or quote in nyse_quote]
+    print(query_crypto)
+    print(query_sotck)
+    #get the price
+    if len(query_crypto) > 0:
+        crypto_price = await get_crypto_price(query_crypto)
+    if len(query_sotck) > 0:
+        stock_price = await get_stock_price(query_sotck,api_key)
+    #combine the price and return
+    return {**crypto_price,**stock_price}
+    
+async def get_crypto_price(symbol:list) -> dict:
+    """Get the price of crypto"""
+    ex = binance()
+    ex.load_markets()
+    crypto_price = {}
+    for quote in symbol:
+        crypto_price[quote] = ex.fetch_ticker(quote+"/USDT")["last"]
+    return crypto_price
 
+async def get_stock_price(symbol:list,api_key:str) -> dict:
+    """Get the price of stock"""
+    query_url = "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={}&apikey={}"
+    stock_price = {}
+    for quote in symbol:
+        stock_price[quote] = requests.get(query_url.format(quote,api_key)).json()["Global Quote"]["05. price"]
+    return stock_price
+
+# Telegram bot commands functions
 # Define a few command handlers. These usually take the two arguments update and
 # context.
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -71,12 +113,40 @@ async def get_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the price of a stock"""
     #get the stock symbol
     symbol = update.message.text.split()[1:]
+    #get the api_key from config.yaml
+    api_key = ""
+    with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
     #get the price
-    print(symbol)
-    await update.message.reply_text("*TEST*",parse_mode="markdown")
+    price = await get_price_prive(symbol,api_key)
+    print(price)
+    #make markdown text
+    text = "💲Price💲\n"
+    for quote in price:
+        text += f"*{quote}*: _{price[quote]}_\n"
+    await update.message.reply_text(text=text,parse_mode="markdown")
 
 def main(token:str,api_key:str) -> None:
     """Start the bot."""
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    #check if config.yaml exists
+    if not os.path.exists("config.yaml"):
+        # save token and api_key to config.yaml
+        config = {
+            'token': token,
+            'api_key': api_key
+        }
+        with open('config.yaml', 'w') as yaml_file:
+            yaml.dump(config, yaml_file, default_flow_style=False)
+
+    else:
+        # replace token and api_key in config.yaml
+        with open('config.yaml', 'r') as yaml_file:
+            config = yaml.load(yaml_file, Loader=yaml.FullLoader)
+        config['token'] = token
+        config['api_key'] = api_key
+        with open('config.yaml', 'w') as yaml_file:
+            yaml.dump(config, yaml_file, default_flow_style=False)
+
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(token=token).build()
 
