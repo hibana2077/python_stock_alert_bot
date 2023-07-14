@@ -33,34 +33,28 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Private functions
-async def get_price_prive(symbol:list,api_key:str) -> dict:
+async def get_crypto_price_prive(symbol:list) -> dict:
     """Get the price of input symbol"""
-    #split crypto and stock
     ex = binance()
     ex.load_markets()
     crypto_quote = [quote.split("/")[0] for quote in ex.symbols if quote.endswith("/USDT")]
+    query_crypto = [quote for quote in symbol if quote in crypto_quote]
+    crypto_price = {}
+    for quote in query_crypto:
+        crypto_price[quote] = ex.fetch_ticker(quote+"/USDT")["last"]
+    return crypto_price
+
+async def get_stock_price_prive(symbol:list,api_key:str) -> dict:
+    """Get the price of input symbol"""
     nasdaq_quote = pd.read_csv("https://datahub.io/core/nasdaq-listings/r/1.csv")["Symbol"].tolist()
     nyse_quote = pd.read_csv("https://datahub.io/core/nyse-other-listings/r/1.csv")["ACT Symbol"].tolist()
-    query_crypto = [quote for quote in symbol if quote in crypto_quote]
     query_sotck = [quote for quote in symbol if quote in nasdaq_quote or quote in nyse_quote]
-    print(query_crypto)
     print(query_sotck)
     #get the price
-    if len(query_crypto) > 0:
-        crypto_price = await get_crypto_price(query_crypto)
     if len(query_sotck) > 0:
         stock_price = await get_stock_price(query_sotck,api_key)
     #combine the price and return
-    return {**crypto_price,**stock_price}
-    
-async def get_crypto_price(symbol:list) -> dict:
-    """Get the price of crypto"""
-    ex = binance()
-    ex.load_markets()
-    crypto_price = {}
-    for quote in symbol:
-        crypto_price[quote] = ex.fetch_ticker(quote+"/USDT")["last"]
-    return crypto_price
+    return stock_price
 
 async def get_stock_price(symbol:list,api_key:str) -> dict:
     """Get the price of stock"""
@@ -88,6 +82,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
    /start - start the bot user guide
    /help - get help on how to use the bot
    /price - get the price of a stock
+   /crypto - get the price of a crypto
 🌐Website
   ⚡[Firstrade](https://www.firstrade.com/)⚡
   ⚡[Alpaca](https://alpaca.markets/)⚡
@@ -109,7 +104,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Echo the user message."""
     await update.message.reply_text(update.message.text)
 
-async def get_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def get_stock_price_pub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the price of a stock"""
     #get the stock symbol
     symbol = update.message.text.split()[1:]
@@ -117,8 +112,20 @@ async def get_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     api_key = ""
     with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
     #get the price
-    price = await get_price_prive(symbol,api_key)
+    price = await get_stock_price_prive(symbol,api_key)
     print(price)
+    #make markdown text
+    text = "💲Price💲\n"
+    for quote in price:
+        text += f"*{quote}*: _{price[quote]}_\n"
+    await update.message.reply_text(text=text,parse_mode="markdown")
+
+async def get_crypto_price_pub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Get the price of a crypto"""
+    #get the crypto symbol
+    symbol = update.message.text.split()[1:]
+    #get the price
+    price = await get_crypto_price_prive(symbol)
     #make markdown text
     text = "💲Price💲\n"
     for quote in price:
@@ -153,7 +160,8 @@ def main(token:str,api_key:str) -> None:
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("price", get_price))
+    application.add_handler(CommandHandler("price", get_stock_price_pub))
+    application.add_handler(CommandHandler("crypto", get_crypto_price_pub))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
