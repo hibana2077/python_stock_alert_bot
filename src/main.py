@@ -97,7 +97,6 @@ async def get_history_share_devide(symbol:list,api_key:str) -> dict:
         devide_info[quote] = sum(temp_data.values())/len(temp_data)
     
     return devide_info
-            
 
 # Telegram bot commands functions
 # Define a few command handlers. These usually take the two arguments update and
@@ -134,6 +133,17 @@ async def get_nyse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the NYSE stocks"""
     url = "https://datahub.io/core/nyse-other-listings/r/1.csv"
     df = pd.read_csv(url)
+
+async def get_stock_devide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Get the devide of a stock"""
+    symbols = update.message.text.split()[1:]
+    api_key = ""
+    with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
+    devide = await get_history_share_devide(symbols,api_key)
+    text = "💲Devide💲\n"
+    for quote in devide:
+        text += f"*{quote}*: {devide[quote]}\n"
+    await update.message.reply_text(text, parse_mode="markdown")
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Echo the user message."""
