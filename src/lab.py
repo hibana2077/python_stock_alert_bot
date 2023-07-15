@@ -7,7 +7,5 @@
 # ex = binance()
 # ex.load_markets()
 # print([quote.split("/")[0] for quote in ex.symbols if quote.endswith("/USDT")])
-d1 = {"a":1,"b":2}
-d2 = {"c":3,"d":4}
-c3 = {**d1,**d2}
-print(c3)
+dict1 = {"2021":15,"2022":20,"2023":25}
+print(dict1.values().tolist())

@@ -94,7 +94,7 @@ async def get_history_share_devide(symbol:list,api_key:str) -> dict:
             if year not in temp_data:
                 temp_data[year] = 0
             temp_data[year] += float(stock_info[quote][date]["7. dividend amount"])
-        devide_info[quote] = sum(temp_data.values())/len(temp_data)
+        devide_info[quote] = sum(list(temp_data.values())[1:6:])/5
     
     return devide_info
 
@@ -117,6 +117,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
    /help - get help on how to use the bot
    /price - get the price of a stock
    /crypto - get the price of a crypto
+   /devide - get the devide of a stock
 🌐Website
   ⚡[Firstrade](https://www.firstrade.com/)⚡
   ⚡[Alpaca](https://alpaca.markets/)⚡
@@ -207,6 +208,7 @@ def main(token:str,api_key:str) -> None:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("price", get_stock_price_pub))
     application.add_handler(CommandHandler("crypto", get_crypto_price_pub))
+    application.add_handler(CommandHandler("devide", get_stock_devide))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
