@@ -72,7 +72,7 @@ async def fetch(session:aiohttp.ClientSession, url:str) -> str:
         return await response.text()
 
 async def get_history_share_devide(symbol:list,api_key:str) -> dict:
-    query_url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={}&apikey={}"
+    query_url = "https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={}&apikey={}"
     stock_info = {}
     devide_info = {}
     
