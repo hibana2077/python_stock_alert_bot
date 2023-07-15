@@ -17,6 +17,9 @@ import yaml
 import os
 import sys
 import requests
+import aiohttp
+import asyncio
+import json
 import pandas as pd
 import numpy as np
 from telegram import ForceReply, Update
@@ -64,18 +67,35 @@ async def get_stock_price(symbol:list,api_key:str) -> dict:
         stock_price[quote] = requests.get(query_url.format(quote,api_key)).json()["Global Quote"]["05. price"]
     return stock_price
 
+async def fetch(session:aiohttp.ClientSession, url:str) -> str:
+    async with session.get(url) as response:
+        return await response.text()
+
 async def get_history_share_devide(symbol:list,api_key:str) -> dict:
-    """Get the history share devide"""
     query_url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={}&apikey={}"
     stock_info = {}
     devide_info = {}
-    for quote in symbol:stock_info[quote] = requests.get(query_url.format(quote,api_key)).json()["Monthly Adjusted Time Series"]
+    
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for quote in symbol:
+            task = asyncio.ensure_future(fetch(session, query_url.format(quote,api_key)))
+            tasks.append(task)
+        responses = await asyncio.gather(*tasks)
+        
+        for quote, response in zip(symbol, responses):
+            data = json.loads(response)
+            stock_info[quote] = data["Monthly Adjusted Time Series"]
+        
     for quote in stock_info.keys():
         temp_data = {}
         for date in stock_info[quote].keys():
-            #every year
-            temp_data[date.split("-")[0]] += float(stock_info[quote][date]["7. dividend amount"])
+            year = date.split("-")[0]
+            if year not in temp_data:
+                temp_data[year] = 0
+            temp_data[year] += float(stock_info[quote][date]["7. dividend amount"])
         devide_info[quote] = sum(temp_data.values())/len(temp_data)
+    
     return devide_info
             
 
