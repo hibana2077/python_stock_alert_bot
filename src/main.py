@@ -63,8 +63,16 @@ async def get_stock_price(symbol:list,api_key:str) -> dict:
     """Get the price of stock"""
     query_url = "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={}&apikey={}"
     stock_price = {}
-    for quote in symbol:
-        stock_price[quote] = requests.get(query_url.format(quote,api_key)).json()["Global Quote"]["05. price"]
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for quote in symbol:
+            task = asyncio.ensure_future(fetch(session, query_url.format(quote,api_key)))
+            tasks.append(task)
+        responses = await asyncio.gather(*tasks)
+        
+        for quote, response in zip(symbol, responses):
+            data = json.loads(response)
+            stock_price[quote] = data["Global Quote"]["05. price"]
     return stock_price
 
 async def fetch(session:aiohttp.ClientSession, url:str) -> str:
@@ -115,9 +123,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 🔰Commands
    /start - start the bot user guide
    /help - get help on how to use the bot
-   /price - get the price of a stock
-   /crypto - get the price of a crypto
-   /devide - get the devide of a stock
+   /price - get the price of given stock
+   /crypto - get the price of given crypto
+   /devide - get the devide of given stock for the past 5 years
+   /get_nasdaq - get the best stocks in Nasdaq
+   /get_nyse - get the best stocks in NYSE
 🌐Website
   ⚡[Firstrade](https://www.firstrade.com/)⚡
   ⚡[Alpaca](https://alpaca.markets/)⚡
@@ -129,6 +139,10 @@ async def get_nasdaq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     """Get the Nasdaq stocks"""
     url = "https://datahub.io/core/nasdaq-listings/r/1.csv"
     df = pd.read_csv(url)
+    symbols = df["Symbol"].tolist()
+    api_key = ""
+    with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
+    stock_price = await get_stock_price(symbols,api_key)
 
 async def get_nyse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the NYSE stocks"""
