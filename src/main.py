@@ -64,6 +64,21 @@ async def get_stock_price(symbol:list,api_key:str) -> dict:
         stock_price[quote] = requests.get(query_url.format(quote,api_key)).json()["Global Quote"]["05. price"]
     return stock_price
 
+async def get_history_share_devide(symbol:list,api_key:str) -> dict:
+    """Get the history share devide"""
+    query_url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={}&apikey={}"
+    stock_info = {}
+    devide_info = {}
+    for quote in symbol:stock_info[quote] = requests.get(query_url.format(quote,api_key)).json()["Monthly Adjusted Time Series"]
+    for quote in stock_info.keys():
+        temp_data = {}
+        for date in stock_info[quote].keys():
+            #every year
+            temp_data[date.split("-")[0]] += float(stock_info[quote][date]["7. dividend amount"])
+        devide_info[quote] = sum(temp_data.values())/len(temp_data)
+    return devide_info
+            
+
 # Telegram bot commands functions
 # Define a few command handlers. These usually take the two arguments update and
 # context.
