@@ -132,6 +132,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
   ⚡[Firstrade](https://www.firstrade.com/)⚡
   ⚡[Alpaca](https://alpaca.markets/)⚡
   ⚡[TD Ameritrade](https://www.tdameritrade.com/home.page)⚡
+  ⚡[MEXC](https://www.mexc.com/register?inviteCode=1fFm4)⚡
+  ⚡[Binance](https://www.binance.info/zh-TC/activity/referral-entry/CPA/incremental?ref=CPA_00JTV45LM5)⚡
+🪪Author
+  ⚡[Github](https://www.github.com/hibana2077)⚡
+  ⚡[Website](https://www.hibana2077.com)⚡
     """
     await update.message.reply_text(help_text, parse_mode="markdown")
 
@@ -143,6 +148,19 @@ async def get_nasdaq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     api_key = ""
     with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
     stock_price = await get_stock_price(symbols,api_key)
+    stock_devide = await get_history_share_devide(symbols,api_key)
+    df["Price"] = df["Symbol"].map(stock_price)
+    df["Devide"] = df["Symbol"].map(stock_devide)
+    df["5percent"] = df["Devide"]/0.05
+    df["is_good"] = df["5percent"] < df["Price"]
+    df = df[df["is_good"] == True]
+    df = df.sort_values(by=["price"] - ["5percent"], ascending=False)
+    df:pd.DataFrame = df[["Symbol","Name","Price","Devide","5percent"]]
+    df = df.head(10)
+    text = "📈Nasdaq📈\n"
+    for index, row in df.iterrows():
+        text += f"*{row['Symbol']}*: price: {row['Price']}, devide: {row['Devide']:.4f}\n"
+    await update.message.reply_text(text, parse_mode="markdown")
 
 async def get_nyse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the NYSE stocks"""
