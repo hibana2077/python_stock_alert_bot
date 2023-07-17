@@ -17,6 +17,7 @@ import yaml
 import os
 import sys
 import requests
+import time
 import aiohttp
 import asyncio
 import json
@@ -126,22 +127,53 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
    /price - get the price of given stock
    /crypto - get the price of given crypto
    /devide - get the devide of given stock for the past 5 years
-   /get_nasdaq - get the best stocks in Nasdaq
-   /get_nyse - get the best stocks in NYSE
+   /twse - get the best stocks in TWSE (It will take a while to get the result)
+   /nasdaq - get the best stocks in Nasdaq (It will take a while to get the result)
+   /nyse - get the best stocks in NYSE (It will take a while to get the result)
+   /check - check the stock is good to buy or not
+   /status - check the status of the bot
+
 🌐Website
-  ⚡[Firstrade](https://www.firstrade.com/)⚡
   ⚡[Alpaca](https://alpaca.markets/)⚡
-  ⚡[TD Ameritrade](https://www.tdameritrade.com/home.page)⚡
-  ⚡[MEXC](https://www.mexc.com/register?inviteCode=1fFm4)⚡
   ⚡[Binance](https://www.binance.info/zh-TC/activity/referral-entry/CPA/incremental?ref=CPA_00JTV45LM5)⚡
+  ⚡[Firstrade](https://www.firstrade.com/)⚡
+  ⚡[MEXC](https://www.mexc.com/register?inviteCode=1fFm4)⚡
+  ⚡[TD Ameritrade](https://www.tdameritrade.com/home.page)⚡
+  
 🪪Author
   ⚡[Github](https://www.github.com/hibana2077)⚡
   ⚡[Website](https://www.hibana2077.com)⚡
     """
     await update.message.reply_text(help_text, parse_mode="markdown")
 
+async def twse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Get the best stocks in TWSE"""
+    STOCK_DAY_AVG_ALL = 'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_AVG_ALL'
+    STOCK_DEVIDE = "https://openapi.twse.com.tw/v1/opendata/t187ap40_L"
+    new_price = pd.read_json(STOCK_DAY_AVG_ALL)
+    devide = pd.read_json(STOCK_DEVIDE)
+
+
+async def check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Check the stock is good to buy or not"""
+    print("check")
+    symbols = update.message.text.split()[1:]
+    api_key = ""
+    with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
+    stock_price = await get_stock_price(symbols,api_key)
+    stock_devide = await get_history_share_devide(symbols,api_key)
+    result_data = {}
+    for symbol in symbols:
+        result_data[symbol] = float(stock_price[symbol]) - (float(stock_devide[symbol])/0.05)
+    result_data = sorted(result_data.items(), key=lambda x: x[1], reverse=True)
+    result_text = "📊Check result\n"
+    for data in result_data:
+        result_text += f"*{data[0]}*:\t *Fair Value*: {float(stock_devide[data[0]])/0.05}, *Market Price*: {float(stock_price[data[0]])}, *Status*: {'Good to buy😊' if data[1] < 0 else 'Not good to buy😢'}\n"
+    await update.message.reply_text(result_text, parse_mode="markdown")
+
 async def get_nasdaq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the Nasdaq stocks"""
+    print("get_nasdaq")
     url = "https://datahub.io/core/nasdaq-listings/r/1.csv"
     df = pd.read_csv(url)
     symbols = df["Symbol"].tolist()
@@ -166,6 +198,7 @@ async def get_nyse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the NYSE stocks"""
     url = "https://datahub.io/core/nyse-other-listings/r/1.csv"
     df = pd.read_csv(url)
+    await update.message.reply_text("Function is not ready yet")
 
 async def get_stock_devide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the devide of a stock"""
@@ -241,6 +274,10 @@ def main(token:str,api_key:str) -> None:
     application.add_handler(CommandHandler("price", get_stock_price_pub))
     application.add_handler(CommandHandler("crypto", get_crypto_price_pub))
     application.add_handler(CommandHandler("devide", get_stock_devide))
+    application.add_handler(CommandHandler("nasdaq", get_nasdaq))
+    application.add_handler(CommandHandler("nyse", get_nyse))
+    application.add_handler(CommandHandler("check", check))
+    application.add_handler(CommandHandler("twse", twse))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
