@@ -150,14 +150,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     """
     await update.message.reply_text(help_text, parse_mode="markdown")
 
-async def twse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Get the best stocks in TWSE"""
-    STOCK_DAY_AVG_ALL = 'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_AVG_ALL'
-    STOCK_DEVIDE = "https://openapi.twse.com.tw/v1/opendata/t187ap40_L"
-    new_price = pd.read_json(STOCK_DAY_AVG_ALL)
-    devide = pd.read_json(STOCK_DEVIDE)
-
-
 async def check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Check the stock is good to buy or not"""
     print("check")
