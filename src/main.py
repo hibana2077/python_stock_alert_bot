@@ -198,7 +198,25 @@ async def get_nyse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the NYSE stocks"""
     url = "https://datahub.io/core/nyse-other-listings/r/1.csv"
     df = pd.read_csv(url)
-    await update.message.reply_text("Function is not ready yet")
+    symbols = df["ACT Symbol"].tolist()
+    stock_price = await get_stock_price(symbols,api_key)
+    stock_devide = await get_history_share_devide(symbols,api_key)
+    df["Price"] = df["ACT Symbol"].map(stock_price)
+    df["Devide"] = df["ACT Symbol"].map(stock_devide)
+    df["5percent"] = df["Devide"]/0.05
+    df["is_good"] = df["5percent"] < df["Price"]
+    df = df[df["is_good"] == True]
+    df = df.sort_values(by=["Price"] - df["5percent"], ascending=False)
+    df:pd.DataFrame = df[["ACT Symbol","Company Name","Price","Devide","5percent"]]
+    df = df.head(10)
+    text = "📈NYSE📈\n"
+    for _, row in df.iterrows():
+        text += f"Symbol: {row['ACT Symbol']}\n"
+        text += f"Name: {row['Company Name']}\n"
+        text += f"Price: {row['Price']}\n"
+        text += f"Devide: {row['Devide']}\n"
+        text += f"5%: {row['5percent']}\n\n"
+    await update.message.reply_text(text, parse_mode="markdown")
 
 async def get_stock_devide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the devide of a stock"""
