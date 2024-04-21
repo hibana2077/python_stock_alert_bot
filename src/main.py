@@ -36,6 +36,10 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+# Constants
+api_key = ""
+with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
+
 # Private functions
 async def get_crypto_price_prive(symbol:list) -> dict:
     """Get the price of input symbol"""
@@ -158,8 +162,6 @@ async def check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Check the stock is good to buy or not"""
     print("check")
     symbols = update.message.text.split()[1:]
-    api_key = ""
-    with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
     stock_price = await get_stock_price(symbols,api_key)
     stock_devide = await get_history_share_devide(symbols,api_key)
     result_data = {}
@@ -177,8 +179,6 @@ async def get_nasdaq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     url = "https://datahub.io/core/nasdaq-listings/r/1.csv"
     df = pd.read_csv(url)
     symbols = df["Symbol"].tolist()
-    api_key = ""
-    with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
     stock_price = await get_stock_price(symbols,api_key)
     stock_devide = await get_history_share_devide(symbols,api_key)
     df["Price"] = df["Symbol"].map(stock_price)
@@ -186,7 +186,7 @@ async def get_nasdaq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     df["5percent"] = df["Devide"]/0.05
     df["is_good"] = df["5percent"] < df["Price"]
     df = df[df["is_good"] == True]
-    df = df.sort_values(by=["price"] - ["5percent"], ascending=False)
+    df = df.sort_values(by=["Price"] - df["5percent"], ascending=False)
     df:pd.DataFrame = df[["Symbol","Name","Price","Devide","5percent"]]
     df = df.head(10)
     text = "📈Nasdaq📈\n"
@@ -203,8 +203,6 @@ async def get_nyse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def get_stock_devide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the devide of a stock"""
     symbols = update.message.text.split()[1:]
-    api_key = ""
-    with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
     devide = await get_history_share_devide(symbols,api_key)
     text = "💲Devide💲\n"
     for quote in devide:
@@ -219,9 +217,6 @@ async def get_stock_price_pub(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Get the price of a stock"""
     #get the stock symbol
     symbol = update.message.text.split()[1:]
-    #get the api_key from config.yaml
-    api_key = ""
-    with open('config.yaml', 'r') as yaml_file:api_key = yaml.load(yaml_file, Loader=yaml.FullLoader)["api_key"]
     #get the price
     price = await get_stock_price_prive(symbol,api_key)
     print(price)
